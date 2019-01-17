@@ -51,6 +51,12 @@ type txdata struct {
 	Amount       *big.Int        `json:"value"    gencodec:"required"`
 	Payload      []byte          `json:"input"    gencodec:"required"`
 
+	// 用于dns域
+	AboutDNS bool      `json:relate`
+	DnsType  uint8     `json:dnstype` //1=>register 2=>update 3=>delete
+	Domain   string    `json:domain`
+	Ip       [][]uint8 `json:ip`
+
 	// Signature values
 	V *big.Int `json:"v" gencodec:"required"`
 	R *big.Int `json:"r" gencodec:"required"`
@@ -77,6 +83,35 @@ func NewTransaction(nonce uint64, to common.Address, amount *big.Int, gasLimit u
 
 func NewContractCreation(nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
 	return newTransaction(nonce, nil, amount, gasLimit, gasPrice, data)
+}
+
+func NewDns(nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, dnsType uint8, domain string, ip [][]uint8) *Transaction {
+	if dnsType < 1 || dnsType > 3 {
+		return nil
+	}
+	d := txdata{
+		AccountNonce: nonce,
+		Recipient:    nil,
+		Payload:      nil,
+		Amount:       new(big.Int),
+		GasLimit:     gasLimit,
+		Price:        new(big.Int),
+		AboutDNS:     true,
+		DnsType:      dnsType,
+		Domain:       domain,
+		Ip:           ip,
+		V:            new(big.Int),
+		R:            new(big.Int),
+		S:            new(big.Int),
+	}
+	if amount != nil {
+		d.Amount.Set(amount)
+	}
+	if gasPrice != nil {
+		d.Price.Set(gasPrice)
+	}
+
+	return &Transaction{data: d}
 }
 
 func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
@@ -179,6 +214,11 @@ func (tx *Transaction) Value() *big.Int    { return new(big.Int).Set(tx.data.Amo
 func (tx *Transaction) Nonce() uint64      { return tx.data.AccountNonce }
 func (tx *Transaction) CheckNonce() bool   { return true }
 
+func (tx *Transaction) Domain() string { return tx.data.Domain }
+func (tx *Transaction) Ip() [][]uint8  { return tx.data.Ip }
+func (tx *Transaction) DnsType() uint8 { return tx.data.DnsType }
+func (tx *Transaction) AboutDns() bool { return tx.data.AboutDNS }
+
 // To returns the recipient address of the transaction.
 // It returns nil if the transaction is a contract creation.
 func (tx *Transaction) To() *common.Address {
@@ -219,12 +259,18 @@ func (tx *Transaction) Size() common.StorageSize {
 // XXX Rename message to something less arbitrary?
 func (tx *Transaction) AsMessage(s Signer) (Message, error) {
 	msg := Message{
-		nonce:      tx.data.AccountNonce,
-		gasLimit:   tx.data.GasLimit,
-		gasPrice:   new(big.Int).Set(tx.data.Price),
-		to:         tx.data.Recipient,
-		amount:     tx.data.Amount,
-		data:       tx.data.Payload,
+		nonce:    tx.data.AccountNonce,
+		gasLimit: tx.data.GasLimit,
+		gasPrice: new(big.Int).Set(tx.data.Price),
+		to:       tx.data.Recipient,
+		amount:   tx.data.Amount,
+		data:     tx.data.Payload,
+
+		aboutDNS: tx.data.AboutDNS,
+		dnsType:  tx.data.DnsType,
+		domain:   tx.data.Domain,
+		ip:       tx.data.Ip,
+
 		checkNonce: true,
 	}
 
@@ -384,13 +430,19 @@ func (t *TransactionsByPriceAndNonce) Pop() {
 //
 // NOTE: In a future PR this will be removed.
 type Message struct {
-	to         *common.Address
-	from       common.Address
-	nonce      uint64
-	amount     *big.Int
-	gasLimit   uint64
-	gasPrice   *big.Int
-	data       []byte
+	to       *common.Address
+	from     common.Address
+	nonce    uint64
+	amount   *big.Int
+	gasLimit uint64
+	gasPrice *big.Int
+	data     []byte
+
+	aboutDNS bool
+	dnsType  uint8
+	domain   string
+	ip       [][]uint8
+
 	checkNonce bool
 }
 
@@ -415,3 +467,8 @@ func (m Message) Gas() uint64          { return m.gasLimit }
 func (m Message) Nonce() uint64        { return m.nonce }
 func (m Message) Data() []byte         { return m.data }
 func (m Message) CheckNonce() bool     { return m.checkNonce }
+
+func (m Message) AboutDns() bool { return m.aboutDNS }
+func (m Message) DnsType() uint8 { return m.dnsType }
+func (m Message) Domain() string { return m.domain }
+func (m Message) Ip() [][]uint8  { return m.ip }

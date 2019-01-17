@@ -667,9 +667,25 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 	}
 	// If the transaction is replacing an already pending one, do directly
 	from, _ := types.Sender(pool.signer, tx) // already validated
+	log.Info("get the from addr", "from", from)
 	if list := pool.pending[from]; list != nil && list.Overlaps(tx) {
 		// Nonce already pending, check if required price bump is met
 		inserted, old := list.Add(tx, pool.config.PriceBump)
+
+		//**********************************my*****************************
+		pending := make(map[common.Address]types.Transactions)
+		for addr, list := range pool.pending {
+			pending[addr] = list.Flatten()
+		}
+		var pendingValue uint64
+		pendingValue = 0
+		for _, list := range pending {
+			for _, tx := range list {
+				pendingValue = pendingValue + tx.Gas()
+			}
+		}
+		log.Info("has inserted the tx", "inserted", inserted, "listPending", len(pool.pending), "pendingValue", pendingValue)
+
 		if !inserted {
 			pendingDiscardCounter.Inc(1)
 			return false, ErrReplaceUnderpriced
@@ -806,6 +822,7 @@ func (pool *TxPool) AddRemote(tx *types.Transaction) error {
 // marking the senders as a local ones in the mean time, ensuring they go around
 // the local pricing constraints.
 func (pool *TxPool) AddLocals(txs []*types.Transaction) []error {
+	log.Info("here is adding local txs", "txs", len(txs))
 	return pool.addTxs(txs, !pool.config.NoLocals)
 }
 
@@ -813,6 +830,7 @@ func (pool *TxPool) AddLocals(txs []*types.Transaction) []error {
 // If the senders are not among the locally tracked ones, full pricing constraints
 // will apply.
 func (pool *TxPool) AddRemotes(txs []*types.Transaction) []error {
+	log.Info("here is adding remote txs", "txs", len(txs))
 	return pool.addTxs(txs, false)
 }
 
@@ -820,6 +838,8 @@ func (pool *TxPool) AddRemotes(txs []*types.Transaction) []error {
 func (pool *TxPool) addTx(tx *types.Transaction, local bool) error {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
+
+	log.Info("here is adding single txs", "hash", tx.Hash(), "dns", tx.AboutDns(), "type", tx.DnsType(), "domain", tx.Domain(), "ip", tx.Ip())
 
 	// Try to inject the transaction and update any state
 	replace, err := pool.add(tx, local)
@@ -850,6 +870,7 @@ func (pool *TxPool) addTxsLocked(txs []*types.Transaction, local bool) []error {
 	errs := make([]error, len(txs))
 
 	for i, tx := range txs {
+		log.Info("here is adding tx", "i", i, "tx", tx.Hash())
 		var replace bool
 		if replace, errs[i] = pool.add(tx, local); errs[i] == nil && !replace {
 			from, _ := types.Sender(pool.signer, tx) // already validated
@@ -864,6 +885,7 @@ func (pool *TxPool) addTxsLocked(txs []*types.Transaction, local bool) []error {
 		}
 		pool.promoteExecutables(addrs)
 	}
+
 	return errs
 }
 

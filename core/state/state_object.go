@@ -19,11 +19,13 @@ package state
 import (
 	"bytes"
 	"fmt"
+	//"go-ethereum/log"
 	"io"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
@@ -99,7 +101,14 @@ type Account struct {
 	Nonce    uint64
 	Balance  *big.Int
 	Root     common.Hash // merkle root of the storage trie
+	Dns      *Dns
 	CodeHash []byte
+}
+
+//dns相关信息存储于state_object中
+type Dns struct {
+	entries map[string][][]uint8
+	num     uint64
 }
 
 // newObject creates a state object.
@@ -110,6 +119,11 @@ func newObject(db *StateDB, address common.Address, data Account) *stateObject {
 	if data.CodeHash == nil {
 		data.CodeHash = emptyCodeHash
 	}
+	dns := &Dns{
+		entries: make(map[string][][]uint8),
+		num:     0,
+	}
+	data.Dns = dns
 	return &stateObject{
 		db:            db,
 		address:       address,
@@ -255,6 +269,43 @@ func (self *stateObject) CommitTrie(db Database) error {
 		self.data.Root = root
 	}
 	return err
+}
+
+func (self *stateObject) setDns(dns *Dns) {
+	self.data.Dns = dns
+}
+
+func (self *stateObject) InsertDns(domain string, ip [][]uint8) {
+	self.db.journal.append(dnsChange{
+		account: &self.address,
+		prev:    self.data.Dns,
+	})
+	self.data.Dns.num++
+	self.data.Dns.entries[domain] = ip
+	log.Info("now the entry state", "num", self.data.Dns.num, "domain", domain, "ip", self.data.Dns.entries[domain])
+}
+
+func (self *stateObject) UpdateDns(domain string, ip [][]uint8) {
+	if self.data.Dns.entries[domain] == nil {
+		return
+	}
+	self.db.journal.append(dnsChange{
+		account: &self.address,
+		prev:    self.data.Dns,
+	})
+	self.data.Dns.entries[domain] = ip
+}
+
+func (self *stateObject) DeleteDns(domain string) {
+	if self.data.Dns.entries[domain] == nil {
+		return
+	}
+	self.db.journal.append(dnsChange{
+		account: &self.address,
+		prev:    self.data.Dns,
+	})
+	self.data.Dns.num--
+	delete(self.data.Dns.entries, domain)
 }
 
 // AddBalance removes amount from c's balance.

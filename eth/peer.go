@@ -23,7 +23,7 @@ import (
 	"sync"
 	"time"
 
-	mapset "github.com/deckarep/golang-set"
+	"github.com/deckarep/golang-set"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/p2p"
@@ -208,9 +208,11 @@ func (p *peer) AsyncSendTransactions(txs []*types.Transaction) {
 	select {
 	case p.queuedTxs <- txs:
 		for _, tx := range txs {
+			p.Log().Info("get the tranx", "hash", tx.Hash(), "gas", tx.Gas())
 			p.knownTxs.Add(tx.Hash())
 		}
 	default:
+		p.Log().Info("tranx discard")
 		p.Log().Debug("Dropping transaction propagation", "count", len(txs))
 	}
 }

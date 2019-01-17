@@ -20,11 +20,12 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/log"
 	"math/big"
 	"runtime"
 	"time"
 
-	mapset "github.com/deckarep/golang-set"
+	"github.com/deckarep/golang-set"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/consensus"
@@ -257,6 +258,8 @@ func (ethash *Ethash) verifyHeader(chain consensus.ChainReader, header, parent *
 	// Verify the block's difficulty based in it's timestamp and parent's difficulty
 	expected := ethash.CalcDifficulty(chain, header.Time.Uint64(), parent)
 
+	log.Info("get the expect difficulty", "expected", expected, "header", header.Difficulty)
+
 	if expected.Cmp(header.Difficulty) != 0 {
 		return fmt.Errorf("invalid difficulty: have %v, want %v", header.Difficulty, expected)
 	}
@@ -275,7 +278,8 @@ func (ethash *Ethash) verifyHeader(chain consensus.ChainReader, header, parent *
 	if diff < 0 {
 		diff *= -1
 	}
-	limit := parent.GasLimit / params.GasLimitBoundDivisor
+	//limit := parent.GasLimit / params.GasLimitBoundDivisor
+	limit := parent.GasLimit / 9
 
 	if uint64(diff) >= limit || header.GasLimit < params.MinGasLimit {
 		return fmt.Errorf("invalid gas limit: have %d, want %d += %d", header.GasLimit, parent.GasLimit, limit)
@@ -304,13 +308,64 @@ func (ethash *Ethash) verifyHeader(chain consensus.ChainReader, header, parent *
 // the difficulty that a new block should have when created at time
 // given the parent block's time and difficulty.
 func (ethash *Ethash) CalcDifficulty(chain consensus.ChainReader, time uint64, parent *types.Header) *big.Int {
-	return CalcDifficulty(chain.Config(), time, parent)
+
+	num := parent.Number.Uint64()
+	var prevTime uint64
+	var avg, len uint64
+	avg = 10
+	len = 10
+	log.Info("get the parent number", "number", num)
+	if num > 10 {
+		prevTime = chain.GetHeaderByNumber(num - 10).Time.Uint64()
+		avg = (time - prevTime) / len
+	}
+	/*else if num > 1 {
+		prevTime = chain.GetHeaderByNumber(1).Time.Uint64()
+		len = num - 1
+		avg = (time - prevTime) / len
+
+	}*/
+
+	log.Info("test the prev time", "prevTime", prevTime, "avg", avg)
+
+	result := CalcDifficulty(chain.Config(), time, parent, avg)
+
+	//if uint64(ethash.queue.list.Len()) >= ethash.queueLen {
+	//	value := ethash.queue.list.Front().Value
+	//	val, ok := value.(*big.Int)
+	//	if ok {
+	//		log.Info("before remove", "len", ethash.queue.list.Len(),
+	//			"first", ethash.queue.list.Front().Value, "next", ethash.queue.list.Front().Next().Value,
+	//			"last", ethash.queue.list.Back().Value, "val", val)
+	//		ethash.queue.all.Sub(ethash.queue.all, val)
+	//		ethash.queue.list.Remove(ethash.queue.list.Front())
+	//		log.Info("after remove", "len", ethash.queue.list.Len(),
+	//			"first", ethash.queue.list.Front().Value, "next", ethash.queue.list.Front().Next().Value,
+	//			"last", ethash.queue.list.Back().Value)
+	//
+	//	}
+	//}
+	//timeLong := new(big.Int).SetUint64(10)
+	//if parent != nil && parent.Number.Cmp(new(big.Int).SetUint64(0)) > 0 {
+	//	timeLong.Sub(new(big.Int).SetUint64(time), parent.Time)
+	//}
+	//log.Info("add the time long", "all", ethash.queue.all, "time", timeLong)
+	//ethash.queue.all.Add(ethash.queue.all, timeLong)
+	//ethash.queue.list.PushBack(timeLong)
+	return result
 }
 
 // CalcDifficulty is the difficulty adjustment algorithm. It returns
 // the difficulty that a new block should have when created at time
 // given the parent block's time and difficulty.
-func CalcDifficulty(config *params.ChainConfig, time uint64, parent *types.Header) *big.Int {
+func CalcDifficulty(config *params.ChainConfig, time uint64, parent *types.Header, avg uint64) *big.Int {
+	//len := ethash.queue.list.Len()
+	//log.Info("get the ethash queue value", "len", ethash.queue.list.Len(), "all", ethash.queue.all)
+	//avg := new(big.Int).SetUint64(0)
+	//if len > 0 {
+	//	avg.Div(ethash.queue.all, new(big.Int).SetUint64(uint64(len)))
+	//}
+	//log.Info("get the avg", "avg", avg)
 	next := new(big.Int).Add(parent.Number, big1)
 	switch {
 	case config.IsConstantinople(next):
@@ -318,7 +373,7 @@ func CalcDifficulty(config *params.ChainConfig, time uint64, parent *types.Heade
 	case config.IsByzantium(next):
 		return calcDifficultyByzantium(time, parent)
 	case config.IsHomestead(next):
-		return calcDifficultyHomestead(time, parent)
+		return calcDifficultyHomestead(time, parent, avg)
 	default:
 		return calcDifficultyFrontier(time, parent)
 	}
@@ -400,7 +455,7 @@ func makeDifficultyCalculator(bombDelay *big.Int) func(time uint64, parent *type
 // calcDifficultyHomestead is the difficulty adjustment algorithm. It returns
 // the difficulty that a new block should have when created at time given the
 // parent block's time and difficulty. The calculation uses the Homestead rules.
-func calcDifficultyHomestead(time uint64, parent *types.Header) *big.Int {
+func calcDifficultyHomestead(time uint64, parent *types.Header, avg uint64) *big.Int {
 	// https://github.com/ethereum/EIPs/blob/master/EIPS/eip-2.md
 	// algorithm:
 	// diff = (parent_diff +
@@ -414,10 +469,28 @@ func calcDifficultyHomestead(time uint64, parent *types.Header) *big.Int {
 	x := new(big.Int)
 	y := new(big.Int)
 
-	// 1 - (block_timestamp - parent_timestamp) // 10
 	x.Sub(bigTime, bigParentTime)
+
+	bigTimeLong := new(big.Float).SetUint64(10)
+	if parent != nil && parent.Number.Cmp(new(big.Int).SetUint64(0)) > 0 {
+		bigTimeLong = new(big.Float).SetInt(new(big.Int).Sub(bigTime, bigParentTime))
+	}
+
+	//////////first part
+	// 1 - (block_timestamp - parent_timestamp) // 10
+	//x.Sub(bigTime, bigParentTime)
+	x.SetUint64(avg)
+	//if bigParentTime.Cmp(big.NewInt(0)) > 0{
+	//
+	//}
 	x.Div(x, big10)
-	x.Sub(big1, x)
+	//calc the uncle affect
+	if parent.UncleHash == types.EmptyUncleHash {
+		x.Sub(big1, x)
+	} else {
+		x.Sub(big2, x)
+	}
+	//x.Sub(big1, x)
 
 	// max(1 - (block_timestamp - parent_timestamp) // 10, -99)
 	if x.Cmp(bigMinus99) < 0 {
@@ -426,24 +499,105 @@ func calcDifficultyHomestead(time uint64, parent *types.Header) *big.Int {
 	// (parent_diff + parent_diff // 2048 * max(1 - (block_timestamp - parent_timestamp) // 10, -99))
 	y.Div(parent.Difficulty, params.DifficultyBoundDivisor)
 	x.Mul(y, x)
-	x.Add(parent.Difficulty, x)
+	//x.Add(parent.Difficulty, x)
 
 	// minimum difficulty can ever be (before exponential factor)
+	//if x.Cmp(params.MinimumDifficulty) < 0 {
+	//	x.Set(params.MinimumDifficulty)
+	//}
+
+	log.Info("get the first part", "first", x)
+
+	//////////second part
+	//xx := new(big.Float)
+	//xx.Quo(bigTimeLong, big.NewFloat(10))
+
+	xx := fDiv(bigTimeLong, big.NewFloat(10))
+
+	result := new(big.Float).Set(ln(xx))
+	float10 := new(big.Float).SetUint64(10)
+	if result.Cmp(float10) > 0 {
+		result = float10
+	}
+
+	log.Info("getting the result......", "input", xx, "result", result)
+
+	yy := new(big.Float)
+	yy.Quo(new(big.Float).SetInt(parent.Difficulty), new(big.Float).SetInt(params.DifficultyBoundDivisor))
+
+	xx.Mul(yy, big.NewFloat(-100))
+	xx.Mul(xx, result)
+
+	//xx.Add(new(big.Float).SetInt(parent.Difficulty), xx)
+
+	//log.Info("starting calculate the difficulty", "difficulty", x, "myDifficulty", xx,
+	//	"prec", xx.Prec(), "mode", xx.Mode(), "acc", xx.Acc(), "minPrec", xx.MinPrec(), "isInt", xx.IsInt())
+
+	//get the round result
+	//convert float to int
+	res := new(big.Int)
+	xx.Int(res)
+
+	log.Info("get the second part", "second", res)
+
+	//sum the result
+	x.Add(parent.Difficulty, x)
+	x.Add(x, res)
+
 	if x.Cmp(params.MinimumDifficulty) < 0 {
 		x.Set(params.MinimumDifficulty)
 	}
+
+	log.Info("the result is", "res", x, "avg", avg)
 	// for the exponential factor
-	periodCount := new(big.Int).Add(parent.Number, big1)
-	periodCount.Div(periodCount, expDiffPeriod)
+	//periodCount := new(big.Int).Add(parent.Number, big1)
+	//periodCount.Div(periodCount, expDiffPeriod)
 
 	// the exponential factor, commonly referred to as "the bomb"
 	// diff = diff + 2^(periodCount - 2)
-	if periodCount.Cmp(big1) > 0 {
-		y.Sub(periodCount, big2)
-		y.Exp(big2, y, nil)
-		x.Add(x, y)
-	}
+	//if periodCount.Cmp(big1) > 0 {
+	//	y.Sub(periodCount, big2)h
+	//	y.Exp(big2, y, nil)
+	//	x.Add(x, y)
+	//}
 	return x
+}
+
+func fDiv(x, y *big.Float) *big.Float {
+	tmp := new(big.Float).Quo(x, y)
+	if tmp.Cmp(new(big.Float).SetUint64(1)) > 0 && tmp.Cmp(new(big.Float).SetUint64(2)) < 0 {
+		log.Info("number is greater than 1 and less than 2")
+		return new(big.Float).SetUint64(1)
+	} else {
+		return tmp
+	}
+}
+
+func ln(num *big.Float) *big.Float {
+	numerator := new(big.Float)
+	denominator := new(big.Float)
+	t := new(big.Float)
+	t3 := new(big.Float)
+	t5 := new(big.Float)
+
+	numerator.Sub(num, big.NewFloat(1))
+	denominator.Add(num, big.NewFloat(1))
+	t.Quo(numerator, denominator)
+	result := new(big.Float)
+
+	t3.Mul(t, t)
+	t3.Mul(t3, t)
+
+	t5.Mul(t3, t)
+	t5.Mul(t5, t)
+	t3.Quo(t3, big.NewFloat(3))
+	t5.Quo(t5, big.NewFloat(5))
+
+	result.Add(t, t3)
+	result.Add(result, t5)
+	result.Mul(result, big.NewFloat(2))
+
+	return result
 }
 
 // calcDifficultyFrontier is the difficulty adjustment algorithm. It returns the
@@ -591,6 +745,7 @@ func (ethash *Ethash) SealHash(header *types.Header) (hash common.Hash) {
 		header.GasUsed,
 		header.Time,
 		header.Extra,
+		header.Pending,
 	})
 	hasher.Sum(hash[:0])
 	return hash

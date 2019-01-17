@@ -203,6 +203,27 @@ func (self *StateDB) Empty(addr common.Address) bool {
 	return so == nil || so.empty()
 }
 
+//获得自己dns信息
+func (self *StateDB) GetMyDns(addr common.Address) *Dns {
+	stateObject := self.getStateObject(addr)
+	if stateObject != nil {
+		return stateObject.data.Dns
+	}
+	return nil
+}
+
+//获得所有dns信息 根据domain来查
+func (self *StateDB) GetDns(domain string) [][]uint8 {
+	for _, stateObject := range self.stateObjects {
+		for d, i := range stateObject.data.Dns.entries {
+			if d == domain {
+				return i
+			}
+		}
+	}
+	return nil
+}
+
 // Retrieve the balance from the given address or 0 if object not found
 func (self *StateDB) GetBalance(addr common.Address) *big.Int {
 	stateObject := self.getStateObject(addr)
@@ -315,6 +336,28 @@ func (self *StateDB) HasSuicided(addr common.Address) bool {
 /*
  * SETTERS
  */
+
+//更改dns信息
+func (self *StateDB) InsertDns(addr common.Address, domain string, ip [][]uint8) {
+	stateObject := self.GetOrNewStateObject(addr)
+	if stateObject != nil {
+		stateObject.InsertDns(domain, ip)
+	}
+}
+
+func (self *StateDB) UpdateDns(addr common.Address, domain string, ip [][]uint8) {
+	stateObject := self.GetOrNewStateObject(addr)
+	if stateObject != nil {
+		stateObject.UpdateDns(domain, ip)
+	}
+}
+
+func (self *StateDB) DeleteDns(addr common.Address, domain string) {
+	stateObject := self.GetOrNewStateObject(addr)
+	if stateObject != nil {
+		stateObject.DeleteDns(domain)
+	}
+}
 
 // AddBalance adds amount to the account associated with addr.
 func (self *StateDB) AddBalance(addr common.Address, amount *big.Int) {

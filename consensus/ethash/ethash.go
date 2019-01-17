@@ -18,6 +18,7 @@
 package ethash
 
 import (
+	"container/list"
 	"errors"
 	"fmt"
 	"math"
@@ -33,7 +34,7 @@ import (
 	"time"
 	"unsafe"
 
-	mmap "github.com/edsrzf/mmap-go"
+	"github.com/edsrzf/mmap-go"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -435,6 +436,12 @@ type sealWork struct {
 	res  chan [4]string
 }
 
+//seal time queue for last n block
+type staticsQueue struct {
+	list *list.List
+	all  *big.Int
+}
+
 // Ethash is a consensus engine based on proof-of-work implementing the ethash
 // algorithm.
 type Ethash struct {
@@ -464,6 +471,7 @@ type Ethash struct {
 	lock      sync.Mutex      // Ensures thread safety for the in-memory caches and mining fields
 	closeOnce sync.Once       // Ensures exit channel will not be closed twice.
 	exitCh    chan chan error // Notification channel to exiting backend threads
+
 }
 
 // New creates a full sized ethash PoW scheme and starts a background thread for
@@ -492,7 +500,11 @@ func New(config Config, notify []string, noverify bool) *Ethash {
 		fetchRateCh:  make(chan chan uint64),
 		submitRateCh: make(chan *hashrate),
 		exitCh:       make(chan chan error),
+		//queue:		  new(staticsQueue),
 	}
+	//ethash.queue.all = new(big.Int).SetInt64(0)
+	//ethash.queue.list = new(list.List)
+	//ethash.queueLen = 10
 	go ethash.remote(notify, noverify)
 	return ethash
 }

@@ -73,6 +73,12 @@ type Message interface {
 	Nonce() uint64
 	CheckNonce() bool
 	Data() []byte
+
+	//dns
+	AboutDns() bool
+	DnsType() uint8
+	Domain() string
+	Ip() [][]uint8
 }
 
 // IntrinsicGas computes the 'intrinsic gas' for a message with the given data.
@@ -205,6 +211,14 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		// error.
 		vmerr error
 	)
+
+	if msg.AboutDns() {
+		log.Info("进入处理insertdns操作", "msg", msg)
+		if msg.DnsType() == 1 {
+			st.state.InsertDns(msg.From(), msg.Domain(), msg.Ip())
+		}
+	}
+
 	if contractCreation {
 		ret, _, st.gas, vmerr = evm.Create(sender, st.data, st.gas, st.value)
 	} else {

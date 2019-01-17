@@ -505,6 +505,7 @@ func (s *PublicBlockChainAPI) GetBalance(ctx context.Context, address common.Add
 	if state == nil || err != nil {
 		return nil, err
 	}
+	//return (*hexutil.Big)(new(big.Int).SetUint64(100)), state.Error()
 	return (*hexutil.Big)(state.GetBalance(address)), state.Error()
 }
 
@@ -1187,6 +1188,13 @@ type SendTxArgs struct {
 	GasPrice *hexutil.Big    `json:"gasPrice"`
 	Value    *hexutil.Big    `json:"value"`
 	Nonce    *hexutil.Uint64 `json:"nonce"`
+
+	// 用于dns域
+	AboutDNS bool      `json:relate`
+	DnsType  uint8     `json:dnstype` //1=>register 2=>update 3=>delete
+	Domain   string    `json:domain`
+	Ip       [][]uint8 `json:ip`
+
 	// We accept "data" and "input" for backwards-compatibility reasons. "input" is the
 	// newer name and should be preferred by clients.
 	Data  *hexutil.Bytes `json:"data"`
@@ -1241,6 +1249,11 @@ func (args *SendTxArgs) toTransaction() *types.Transaction {
 	} else if args.Input != nil {
 		input = *args.Input
 	}
+	if args.AboutDNS {
+		return types.NewDns(uint64(*args.Nonce), (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice),
+			args.DnsType, args.Domain, args.Ip)
+	}
+
 	if args.To == nil {
 		return types.NewContractCreation(uint64(*args.Nonce), (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input)
 	}
@@ -1270,6 +1283,8 @@ func submitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 // transaction pool.
 func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args SendTxArgs) (common.Hash, error) {
 
+	log.Info("send the transaction", "from", args.From, "to", args.To, "value", args.Value,
+		"aboutDns", args.AboutDNS, "dnstype", args.DnsType, "Domain", args.Domain, "ip", args.Ip)
 	// Look up the wallet containing the requested signer
 	account := accounts.Account{Address: args.From}
 
@@ -1292,6 +1307,7 @@ func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args Sen
 	// Assemble the transaction and sign with the wallet
 	tx := args.toTransaction()
 
+	log.Info("create the tx", "domain", tx.Domain(), "ip", tx.Ip())
 	var chainID *big.Int
 	if config := s.b.ChainConfig(); config.IsEIP155(s.b.CurrentBlock().Number()) {
 		chainID = config.ChainID

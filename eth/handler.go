@@ -684,6 +684,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 
 	case msg.Code == TxMsg:
+		log.Info("get the new tx msg")
 		// Transactions arrived, make sure we have a valid and fresh chain to handle them
 		if atomic.LoadUint32(&pm.acceptTxs) == 0 {
 			break
@@ -694,12 +695,14 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 		for i, tx := range txs {
+			log.Info("tx's msg is ", "hash", tx.Hash(), "value", tx.Value())
 			// Validate and mark the remote transaction
 			if tx == nil {
 				return errResp(ErrDecode, "transaction %d is nil", i)
 			}
 			p.MarkTransaction(tx.Hash())
 		}
+		log.Info("here is going to add the received tx to the tx pool")
 		pm.txpool.AddRemotes(txs)
 
 	default:
@@ -761,9 +764,13 @@ func (pm *ProtocolManager) BroadcastTxs(txs types.Transactions) {
 		}
 		log.Trace("Broadcast transaction", "hash", tx.Hash(), "recipients", len(peers))
 	}
+
 	// FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
 	for peer, txs := range txset {
+		log.Info("start to broadcast", "peer", peer.id, "txs", len(txs))
 		peer.AsyncSendTransactions(txs)
+		//err := peer.SendTransactions(txs)
+		//log.Info("get the error", "error", err)
 	}
 }
 
@@ -780,6 +787,7 @@ func (pm *ProtocolManager) minedBroadcastLoop() {
 
 func (pm *ProtocolManager) txBroadcastLoop() {
 	for {
+		log.Info("broadcast the tranx")
 		select {
 		case event := <-pm.txsCh:
 			pm.BroadcastTxs(event.Txs)

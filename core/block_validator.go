@@ -18,6 +18,7 @@ package core
 
 import (
 	"fmt"
+	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/core/state"
@@ -123,17 +124,43 @@ func CalcGasLimit(parent *types.Block, gasFloor, gasCeil uint64) uint64 {
 	if limit < params.MinGasLimit {
 		limit = params.MinGasLimit
 	}
-	// If we're outside our allowed gas range, we try to hone towards them
-	if limit < gasFloor {
-		limit = parent.GasLimit() + decay
+
+	pendingValue := parent.Header().Pending
+
+	var diff uint64
+	if limit <= pendingValue {
+		diff = pendingValue - limit
+		log.Info("limit <= pendingValue", "diff", diff, "limit", limit, "pendingValue", pendingValue)
+		if diff > limit {
+			diff = limit
+		}
+		if limit < gasCeil {
+			log.Info("limit < gasCeil")
+			limit = limit + diff/10
+		}
+	} else if limit > pendingValue {
+		diff = limit - pendingValue
+		log.Info("limit > pendingValue", "diff", diff, "limit", limit, "pendingValue", pendingValue)
 		if limit > gasFloor {
+			log.Info("limit > gasFloor")
+			limit = limit - diff/10
+		}
+		if limit < gasFloor {
 			limit = gasFloor
 		}
-	} else if limit > gasCeil {
-		limit = parent.GasLimit() - decay
-		if limit < gasCeil {
-			limit = gasCeil
-		}
 	}
+	log.Info("getting the limit and diff", "limit", limit, "diff", diff, "pendingValue", pendingValue)
+	// If we're outside our allowed gas range, we try to hone towards them
+	//if limit < gasFloor {
+	//	limit = parent.GasLimit() + decay
+	//	if limit > gasFloor {
+	//		limit = gasFloor
+	//	}
+	//} else if limit > gasCeil {
+	//	limit = parent.GasLimit() - decay
+	//	if limit < gasCeil {
+	//		limit = gasCeil
+	//	}
+	//}
 	return limit
 }
