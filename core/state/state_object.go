@@ -19,6 +19,8 @@ package state
 import (
 	"bytes"
 	"fmt"
+	"strings"
+
 	//"go-ethereum/log"
 	"io"
 	"math/big"
@@ -101,14 +103,7 @@ type Account struct {
 	Nonce    uint64
 	Balance  *big.Int
 	Root     common.Hash // merkle root of the storage trie
-	Dns      *Dns
 	CodeHash []byte
-}
-
-//dns相关信息存储于state_object中
-type Dns struct {
-	entries map[string][][]uint8
-	num     uint64
 }
 
 // newObject creates a state object.
@@ -117,13 +112,8 @@ func newObject(db *StateDB, address common.Address, data Account) *stateObject {
 		data.Balance = new(big.Int)
 	}
 	if data.CodeHash == nil {
-		data.CodeHash = emptyCodeHash
+		data.CodeHash = []byte{}
 	}
-	dns := &Dns{
-		entries: make(map[string][][]uint8),
-		num:     0,
-	}
-	data.Dns = dns
 	return &stateObject{
 		db:            db,
 		address:       address,
@@ -232,6 +222,7 @@ func (self *stateObject) setState(key, value common.Hash) {
 func (self *stateObject) updateTrie(db Database) Trie {
 	tr := self.getTrie(db)
 	for key, value := range self.dirtyStorage {
+		log.Info("get the updateTrie", "key", key, "value", value)
 		delete(self.dirtyStorage, key)
 
 		// Skip noop changes, persist actual changes
@@ -271,41 +262,88 @@ func (self *stateObject) CommitTrie(db Database) error {
 	return err
 }
 
-func (self *stateObject) setDns(dns *Dns) {
-	self.data.Dns = dns
-}
-
-func (self *stateObject) InsertDns(domain string, ip [][]uint8) {
-	self.db.journal.append(dnsChange{
-		account: &self.address,
-		prev:    self.data.Dns,
-	})
-	self.data.Dns.num++
-	self.data.Dns.entries[domain] = ip
-	log.Info("now the entry state", "num", self.data.Dns.num, "domain", domain, "ip", self.data.Dns.entries[domain])
-}
-
-func (self *stateObject) UpdateDns(domain string, ip [][]uint8) {
-	if self.data.Dns.entries[domain] == nil {
-		return
+func strToMap(str string) map[string]string {
+	dns := make(map[string]string)
+	entrys := strings.Split(str, ";")
+	for i := range entrys {
+		kv := strings.Split(entrys[i], ":")
+		dns[kv[0]] = kv[1]
 	}
-	self.db.journal.append(dnsChange{
-		account: &self.address,
-		prev:    self.data.Dns,
-	})
-	self.data.Dns.entries[domain] = ip
+	return dns
+}
+
+func mapToStr(dns map[string]string) string {
+
+	res := ""
+	for k, v := range dns {
+		if res != "" {
+			res += ";"
+		}
+		res += k + ":" + v
+	}
+	return res
+
+}
+
+func (self *stateObject) InsertDns(domain string, ip string) {
+	//self.db.journal.append(dnsChange{
+	//	account: &self.address,
+	//	prev:    self.data.Dns,
+	//})
+	//self.db.journal.append(numChange{
+	//	account: &self.address,
+	//	prev:    self.data.num,
+	//})
+	if len(self.data.CodeHash) == 0 {
+		tmpStr := domain + ":" + ip
+		self.data.CodeHash = []byte(tmpStr)
+	} else {
+		str := string(self.data.CodeHash)
+		dns := strToMap(str)
+		dns[domain] = ip
+		newStr := mapToStr(dns)
+		self.data.CodeHash = []byte(newStr)
+	}
+	log.Info("decrypt the code insert", "dns", string(self.data.CodeHash))
+	//self.setBalance(new(big.Int).SetUint64(100))
+}
+
+func (self *stateObject) UpdateDns(domain string, ip string) {
+	if len(self.data.CodeHash) == 0 {
+		return
+	} else {
+		str := string(self.data.CodeHash)
+		dns := strToMap(str)
+		if _, ok := dns[domain]; ok {
+			//存在
+			dns[domain] = ip
+		} else {
+			return
+		}
+		newStr := mapToStr(dns)
+		self.data.CodeHash = []byte(newStr)
+	}
+	log.Info("decrypt the code update", "dns", string(self.data.CodeHash))
 }
 
 func (self *stateObject) DeleteDns(domain string) {
-	if self.data.Dns.entries[domain] == nil {
+
+	if len(self.data.CodeHash) == 0 {
 		return
+	} else {
+		str := string(self.data.CodeHash)
+		dns := strToMap(str)
+		if _, ok := dns[domain]; ok {
+			//存在
+			delete(dns, domain)
+		} else {
+			return
+		}
+		newStr := mapToStr(dns)
+		self.data.CodeHash = []byte(newStr)
 	}
-	self.db.journal.append(dnsChange{
-		account: &self.address,
-		prev:    self.data.Dns,
-	})
-	self.data.Dns.num--
-	delete(self.data.Dns.entries, domain)
+	log.Info("decrypt the code delete", "dns", string(self.data.CodeHash))
+
 }
 
 // AddBalance removes amount from c's balance.
@@ -358,6 +396,7 @@ func (self *stateObject) deepCopy(db *StateDB) *stateObject {
 	stateObject.suicided = self.suicided
 	stateObject.dirtyCode = self.dirtyCode
 	stateObject.deleted = self.deleted
+
 	return stateObject
 }
 

@@ -98,9 +98,14 @@ type (
 		prevbalance *big.Int
 	}
 
-	dnsChange struct {
+	//dnsChange struct {
+	//	account *common.Address
+	//	prev    *Dns
+	//}
+
+	numChange struct {
 		account *common.Address
-		prev    *Dns
+		prev    uint64
 	}
 
 	// Changes to individual accounts.
@@ -173,14 +178,6 @@ func (ch touchChange) revert(s *StateDB) {
 }
 
 func (ch touchChange) dirtied() *common.Address {
-	return ch.account
-}
-
-func (ch dnsChange) revert(s *StateDB) {
-	s.getStateObject(*ch.account).setDns(ch.prev)
-}
-
-func (ch dnsChange) dirtied() *common.Address {
 	return ch.account
 }
 

@@ -336,6 +336,24 @@ func (ec *Client) BalanceAt(ctx context.Context, account common.Address, blockNu
 	return (*big.Int)(&result), err
 }
 
+func (ec *Client) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error) {
+	var result hexutil.Uint64
+	err := ec.c.CallContext(ctx, &result, "eth_getNonce", account, toBlockNumArg(blockNumber))
+	return uint64(result), err
+}
+
+func (ec *Client) DnsAt(ctx context.Context, account common.Address, blockNumber *big.Int, domain string) (string, error) {
+	var result string
+	err := ec.c.CallContext(ctx, &result, "eth_getDns", account, toBlockNumArg(blockNumber), domain)
+	return result, err
+}
+
+func (ec *Client) MyDnsAt(ctx context.Context, account common.Address, blockNumber *big.Int) (map[string][][]uint8, error) {
+	var result map[string][][]uint8
+	err := ec.c.CallContext(ctx, &result, "eth_getMyDns", account, toBlockNumArg(blockNumber))
+	return result, err
+}
+
 // StorageAt returns the value of key in the contract storage of the given account.
 // The block number can be nil, in which case the value is taken from the latest known block.
 func (ec *Client) StorageAt(ctx context.Context, account common.Address, key common.Hash, blockNumber *big.Int) ([]byte, error) {
@@ -350,14 +368,6 @@ func (ec *Client) CodeAt(ctx context.Context, account common.Address, blockNumbe
 	var result hexutil.Bytes
 	err := ec.c.CallContext(ctx, &result, "eth_getCode", account, toBlockNumArg(blockNumber))
 	return result, err
-}
-
-// NonceAt returns the account nonce of the given account.
-// The block number can be nil, in which case the nonce is taken from the latest known block.
-func (ec *Client) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error) {
-	var result hexutil.Uint64
-	err := ec.c.CallContext(ctx, &result, "eth_getTransactionCount", account, toBlockNumArg(blockNumber))
-	return uint64(result), err
 }
 
 // Filters

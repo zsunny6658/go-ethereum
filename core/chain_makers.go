@@ -18,8 +18,6 @@ package core
 
 import (
 	"fmt"
-	"math/big"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/misc"
@@ -27,7 +25,10 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/ethdb"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
+	//"go-ethereum/log"
+	"math/big"
 )
 
 // BlockGen creates blocks for testing.
@@ -199,6 +200,7 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 			// Finalize and seal the block
 			block, _ := b.engine.Finalize(chainreader, b.header, statedb, b.txs, b.uncles, b.receipts)
 
+			log.Info("((((((********here is going to make chain*********))))))")
 			// Write state changes to db
 			root, err := statedb.Commit(config.IsEIP158(b.header.Number))
 			if err != nil {

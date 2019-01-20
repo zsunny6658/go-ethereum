@@ -102,7 +102,6 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	if err != nil {
 		return nil, 0, err
 	}
-	log.Info("here is applying the tx", "aboutDns", tx.AboutDns())
 	// Update the state with pending changes
 	var root []byte
 	if config.IsByzantium(header.Number) {

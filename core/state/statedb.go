@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -204,24 +205,65 @@ func (self *StateDB) Empty(addr common.Address) bool {
 }
 
 //获得自己dns信息
-func (self *StateDB) GetMyDns(addr common.Address) *Dns {
-	stateObject := self.getStateObject(addr)
-	if stateObject != nil {
-		return stateObject.data.Dns
-	}
+func (self *StateDB) GetMyDns(addr common.Address) map[string]string {
 	return nil
 }
 
+func myStrToMap(str string) map[string]string {
+	dns := make(map[string]string)
+	entrys := strings.Split(str, ";")
+	for i := range entrys {
+		kv := strings.Split(entrys[i], ":")
+		dns[kv[0]] = kv[1]
+	}
+	return dns
+}
+
+func myMapToStr(dns map[string]string) string {
+
+	res := ""
+	for k, v := range dns {
+		if res != "" {
+			res += ";"
+		}
+		res += k + ":" + v
+	}
+	return res
+
+}
+
 //获得所有dns信息 根据domain来查
-func (self *StateDB) GetDns(domain string) [][]uint8 {
-	for _, stateObject := range self.stateObjects {
-		for d, i := range stateObject.data.Dns.entries {
-			if d == domain {
-				return i
-			}
+func (self *StateDB) GetDns(addr common.Address, domain string) string {
+
+	log.Info("go into the getdns")
+	//for _, stateObject := range self.stateObjects {
+	//	dns := myStrToMap(string(stateObject.data.CodeHash))
+	//	for d, i := range dns {
+	//		log.Info("get the entry", "domain", d, "ip", i)
+	//		if d == domain {
+	//			return i
+	//		}
+	//	}
+	//}
+	stateObject := self.GetOrNewStateObject(addr)
+	if len(stateObject.data.CodeHash) == 0 {
+		return ""
+	}
+	dns := myStrToMap(string(stateObject.data.CodeHash))
+	for d, i := range dns {
+		log.Info("get the entry", "domain", d, "ip", i)
+		if d == domain {
+			return i
 		}
 	}
-	return nil
+	//stateObject := self.getStateObject(addr)
+	//str := string(stateObject.CodeHash())
+	//log.Info("go into the getdns", "addr", addr, "state",stateObject,
+	//	"num", stateObject.data.num, "entry", stateObject.data.entries, "str", str)
+	//if stateObject != nil {
+	//	return stateObject.data.entries[domain]
+	//}
+	return ""
 }
 
 // Retrieve the balance from the given address or 0 if object not found
@@ -338,14 +380,14 @@ func (self *StateDB) HasSuicided(addr common.Address) bool {
  */
 
 //更改dns信息
-func (self *StateDB) InsertDns(addr common.Address, domain string, ip [][]uint8) {
+func (self *StateDB) InsertDns(addr common.Address, domain string, ip string) {
 	stateObject := self.GetOrNewStateObject(addr)
 	if stateObject != nil {
 		stateObject.InsertDns(domain, ip)
 	}
 }
 
-func (self *StateDB) UpdateDns(addr common.Address, domain string, ip [][]uint8) {
+func (self *StateDB) UpdateDns(addr common.Address, domain string, ip string) {
 	stateObject := self.GetOrNewStateObject(addr)
 	if stateObject != nil {
 		stateObject.UpdateDns(domain, ip)

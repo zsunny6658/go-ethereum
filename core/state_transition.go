@@ -78,7 +78,7 @@ type Message interface {
 	AboutDns() bool
 	DnsType() uint8
 	Domain() string
-	Ip() [][]uint8
+	Ip() string
 }
 
 // IntrinsicGas computes the 'intrinsic gas' for a message with the given data.
@@ -193,7 +193,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 	msg := st.msg
 	sender := vm.AccountRef(msg.From())
 	homestead := st.evm.ChainConfig().IsHomestead(st.evm.BlockNumber)
-	contractCreation := msg.To() == nil
+	contractCreation := (msg.To() == nil && msg.AboutDns() == false)
 
 	// Pay intrinsic gas
 	gas, err := IntrinsicGas(st.data, contractCreation, homestead)
@@ -216,6 +216,10 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		log.Info("进入处理insertdns操作", "msg", msg)
 		if msg.DnsType() == 1 {
 			st.state.InsertDns(msg.From(), msg.Domain(), msg.Ip())
+		} else if msg.DnsType() == 2 {
+			st.state.UpdateDns(msg.From(), msg.Domain(), msg.Ip())
+		} else if msg.DnsType() == 3 {
+			st.state.DeleteDns(msg.From(), msg.Domain())
 		}
 	}
 
@@ -224,8 +228,10 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 	} else {
 		// Increment the nonce for the next transaction
 		st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
-		ret, st.gas, vmerr = evm.Call(sender, st.to(), st.data, st.gas, st.value)
+		//没有to地址
+		//ret, st.gas, vmerr = evm.Call(sender, st.to(), st.data, st.gas, st.value)
 	}
+
 	if vmerr != nil {
 		log.Debug("VM returned with error", "err", vmerr)
 		// The only possible consensus-error would be if there wasn't

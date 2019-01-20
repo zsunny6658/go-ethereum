@@ -18,6 +18,7 @@ package rlp
 
 import (
 	"fmt"
+	//"go-ethereum/log"
 	"io"
 	"math/big"
 	"reflect"

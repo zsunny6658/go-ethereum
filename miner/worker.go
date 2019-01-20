@@ -661,6 +661,12 @@ func (w *worker) makeCurrent(parent *types.Block, header *types.Header) error {
 
 	// Keep track of transactions which return errors so they can be removed
 	env.tcount = 0
+
+	//复制状态没有意义，还是需要进行编码并解码出来的才有用
+	//if w.current != nil && w.current.state != nil {
+	//	env.state.CopyEntry(w.current.state)
+	//}
+
 	w.current = env
 	return nil
 }
@@ -901,6 +907,7 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64, 
 	}
 	// Could potentially happen if starting to mine in an odd state.
 	err := w.makeCurrent(parent, header)
+
 	if err != nil {
 		log.Error("Failed to create mining context", "err", err)
 		return

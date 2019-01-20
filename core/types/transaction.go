@@ -52,10 +52,10 @@ type txdata struct {
 	Payload      []byte          `json:"input"    gencodec:"required"`
 
 	// 用于dns域
-	AboutDNS bool      `json:relate`
-	DnsType  uint8     `json:dnstype` //1=>register 2=>update 3=>delete
-	Domain   string    `json:domain`
-	Ip       [][]uint8 `json:ip`
+	AboutDNS bool   `json:relate`
+	DnsType  uint8  `json:dnstype` //1=>register 2=>update 3=>delete
+	Domain   string `json:domain`
+	Ip       string `json:ip`
 
 	// Signature values
 	V *big.Int `json:"v" gencodec:"required"`
@@ -85,7 +85,7 @@ func NewContractCreation(nonce uint64, amount *big.Int, gasLimit uint64, gasPric
 	return newTransaction(nonce, nil, amount, gasLimit, gasPrice, data)
 }
 
-func NewDns(nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, dnsType uint8, domain string, ip [][]uint8) *Transaction {
+func NewDns(nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, dnsType uint8, domain string, ip string) *Transaction {
 	if dnsType < 1 || dnsType > 3 {
 		return nil
 	}
@@ -215,7 +215,7 @@ func (tx *Transaction) Nonce() uint64      { return tx.data.AccountNonce }
 func (tx *Transaction) CheckNonce() bool   { return true }
 
 func (tx *Transaction) Domain() string { return tx.data.Domain }
-func (tx *Transaction) Ip() [][]uint8  { return tx.data.Ip }
+func (tx *Transaction) Ip() string     { return tx.data.Ip }
 func (tx *Transaction) DnsType() uint8 { return tx.data.DnsType }
 func (tx *Transaction) AboutDns() bool { return tx.data.AboutDNS }
 
@@ -441,7 +441,7 @@ type Message struct {
 	aboutDNS bool
 	dnsType  uint8
 	domain   string
-	ip       [][]uint8
+	ip       string
 
 	checkNonce bool
 }
@@ -471,4 +471,4 @@ func (m Message) CheckNonce() bool     { return m.checkNonce }
 func (m Message) AboutDns() bool { return m.aboutDNS }
 func (m Message) DnsType() uint8 { return m.dnsType }
 func (m Message) Domain() string { return m.domain }
-func (m Message) Ip() [][]uint8  { return m.ip }
+func (m Message) Ip() string     { return m.ip }

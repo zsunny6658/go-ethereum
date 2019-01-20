@@ -509,6 +509,26 @@ func (s *PublicBlockChainAPI) GetBalance(ctx context.Context, address common.Add
 	return (*hexutil.Big)(state.GetBalance(address)), state.Error()
 }
 
+func (s *PublicBlockChainAPI) GetMyDns(ctx context.Context, address common.Address, blockNr rpc.BlockNumber) (map[string]string, error) {
+	state, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
+	if state == nil || err != nil {
+		return nil, err
+	}
+	return state.GetMyDns(address), state.Error()
+}
+
+//插入dns信息的接口
+func (s *PublicBlockChainAPI) GetDns(ctx context.Context, address common.Address, blockNr rpc.BlockNumber, domain string) (string, error) {
+	state, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
+	if state == nil || err != nil {
+		return "", err
+	}
+	var tmpResult string
+	tmpResult = state.GetDns(address, domain)
+	log.Info("call the getDns", "state", state.GetOrNewStateObject(address))
+	return tmpResult, state.Error()
+}
+
 // Result structs for GetProof
 type AccountResult struct {
 	Address      common.Address  `json:"address"`
@@ -1190,10 +1210,10 @@ type SendTxArgs struct {
 	Nonce    *hexutil.Uint64 `json:"nonce"`
 
 	// 用于dns域
-	AboutDNS bool      `json:relate`
-	DnsType  uint8     `json:dnstype` //1=>register 2=>update 3=>delete
-	Domain   string    `json:domain`
-	Ip       [][]uint8 `json:ip`
+	AboutDNS bool   `json:relate`
+	DnsType  uint8  `json:dnstype` //1=>register 2=>update 3=>delete
+	Domain   string `json:domain`
+	Ip       string `json:ip`
 
 	// We accept "data" and "input" for backwards-compatibility reasons. "input" is the
 	// newer name and should be preferred by clients.
@@ -1265,7 +1285,7 @@ func submitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 	if err := b.SendTx(ctx, tx); err != nil {
 		return common.Hash{}, err
 	}
-	if tx.To() == nil {
+	if tx.To() == nil && !tx.AboutDns() {
 		signer := types.MakeSigner(b.ChainConfig(), b.CurrentBlock().Number())
 		from, err := types.Sender(signer, tx)
 		if err != nil {

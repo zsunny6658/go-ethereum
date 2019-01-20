@@ -138,6 +138,7 @@ func (api *PrivateDebugAPI) TraceChain(ctx context.Context, start, end rpc.Block
 // executes all the transactions contained within. The return value will be one item
 // per transaction, dependent on the requested tracer.
 func (api *PrivateDebugAPI) traceChain(ctx context.Context, start, end *types.Block, config *TraceConfig) (*rpc.Subscription, error) {
+	log.Info("**************go into the trace************")
 	// Tracing a chain is a **long** operation, only do with subscriptions
 	notifier, supported := rpc.NotifierFromContext(ctx)
 	if !supported {
@@ -441,6 +442,7 @@ func (api *PrivateDebugAPI) StandardTraceBadBlockToFile(ctx context.Context, has
 // executes all the transactions contained within. The return value will be one item
 // per transaction, dependent on the requestd tracer.
 func (api *PrivateDebugAPI) traceBlock(ctx context.Context, block *types.Block, config *TraceConfig) ([]*txTraceResult, error) {
+	log.Info("**************go into the trace block*****************")
 	// Create the parent state database
 	if err := api.eth.engine.VerifyHeader(api.eth.blockchain, block.Header(), true); err != nil {
 		return nil, err
@@ -522,6 +524,7 @@ func (api *PrivateDebugAPI) traceBlock(ctx context.Context, block *types.Block, 
 // and traces either a full block or an individual transaction. The return value will
 // be one filename per transaction traced.
 func (api *PrivateDebugAPI) standardTraceBlockToFile(ctx context.Context, block *types.Block, config *StdTraceConfig) ([]string, error) {
+	log.Info("***************go into the trace block to file***************")
 	// If we're tracing a single transaction, make sure it's present
 	if config != nil && config.TxHash != (common.Hash{}) {
 		var exists bool
@@ -770,6 +773,7 @@ func (api *PrivateDebugAPI) traceTx(ctx context.Context, message core.Message, v
 
 // computeTxEnv returns the execution environment of a certain transaction.
 func (api *PrivateDebugAPI) computeTxEnv(blockHash common.Hash, txIndex int, reexec uint64) (core.Message, vm.Context, *state.StateDB, error) {
+	log.Info("*************go into the compute tx env***************")
 	// Create the parent state database
 	block := api.eth.blockchain.GetBlockByHash(blockHash)
 	if block == nil {

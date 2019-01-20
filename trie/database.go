@@ -514,7 +514,7 @@ func (db *Database) dereference(child common.Hash, parent common.Hash) {
 	// Dereference the parent-child
 	node := db.dirties[parent]
 
-	if node.children != nil && node.children[child] > 0 {
+	if node != nil && node.children != nil && node.children[child] > 0 {
 		node.children[child]--
 		if node.children[child] == 0 {
 			delete(node.children, child)
