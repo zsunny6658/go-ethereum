@@ -669,6 +669,7 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 	from, _ := types.Sender(pool.signer, tx) // already validated
 	log.Info("get the from addr", "from", from)
 	if list := pool.pending[from]; list != nil && list.Overlaps(tx) {
+		log.Info("tx is into the if")
 		// Nonce already pending, check if required price bump is met
 		inserted, old := list.Add(tx, pool.config.PriceBump)
 

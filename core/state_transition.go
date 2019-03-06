@@ -213,13 +213,17 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 	)
 
 	if msg.AboutDns() {
-		log.Info("进入处理insertdns操作", "msg", msg)
+		log.Info("进入处理dns操作", "msg", msg)
 		if msg.DnsType() == 1 {
 			st.state.InsertDns(msg.From(), msg.Domain(), msg.Ip())
 		} else if msg.DnsType() == 2 {
 			st.state.UpdateDns(msg.From(), msg.Domain(), msg.Ip())
 		} else if msg.DnsType() == 3 {
 			st.state.DeleteDns(msg.From(), msg.Domain())
+		} else if msg.DnsType() == 4 {
+			st.state.TransDns(msg.From(), msg.Domain(), msg.Ip(), *msg.To())
+		} else if msg.DnsType() == 5 {
+			st.state.TransReplyDns(msg.From(), msg.Domain(), *msg.To())
 		}
 	}
 
@@ -229,7 +233,10 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		// Increment the nonce for the next transaction
 		st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
 		//没有to地址
-		//ret, st.gas, vmerr = evm.Call(sender, st.to(), st.data, st.gas, st.value)
+		if msg.To() != nil && !msg.AboutDns() {
+			log.Info("test the to addr", "to", st.to())
+			ret, st.gas, vmerr = evm.Call(sender, st.to(), st.data, st.gas, st.value)
+		}
 	}
 
 	if vmerr != nil {

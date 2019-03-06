@@ -69,6 +69,8 @@ type StateDB interface {
 	UpdateDns(common.Address, string, string)
 	DeleteDns(common.Address, string)
 	GetDns(common.Address, string) string
+	TransDns(common.Address, string, string, common.Address)
+	TransReplyDns(common.Address, string, string, common.Address)
 }
 
 // CallContext provides a basic interface for the EVM calling conventions. The EVM

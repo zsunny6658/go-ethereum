@@ -525,7 +525,7 @@ func calcDifficultyHomestead(time uint64, parent *types.Header, avg uint64) *big
 	yy := new(big.Float)
 	yy.Quo(new(big.Float).SetInt(parent.Difficulty), new(big.Float).SetInt(params.DifficultyBoundDivisor))
 
-	xx.Mul(yy, big.NewFloat(-100))
+	xx.Mul(yy, big.NewFloat(-16))
 	xx.Mul(xx, result)
 
 	//xx.Add(new(big.Float).SetInt(parent.Difficulty), xx)

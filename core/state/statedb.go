@@ -286,6 +286,7 @@ func (self *StateDB) GetNonce(addr common.Address) uint64 {
 
 func (self *StateDB) GetCode(addr common.Address) []byte {
 	stateObject := self.getStateObject(addr)
+	log.Info("here is the state", "state", stateObject)
 	if stateObject != nil {
 		return stateObject.Code(self.db)
 	}
@@ -400,6 +401,37 @@ func (self *StateDB) DeleteDns(addr common.Address, domain string) {
 		stateObject.DeleteDns(domain)
 	}
 }
+
+func (self *StateDB) TransDns(addr common.Address, domain string, ip string, to common.Address) {
+	stateObject := self.GetOrNewStateObject(to)
+	fromObject := self.GetOrNewStateObject(addr)
+	if stateObject != nil {
+		stateObject.TransDns(domain, ip, addr)
+		fromObject.InsertDns(domain, ip)
+	}
+}
+
+func (self *StateDB) TransReplyDns(addr common.Address, domain string, to common.Address) {
+	//stateObject := self.GetOrNewStateObject(to)
+	fromObject := self.GetOrNewStateObject(addr)
+	if fromObject != nil {
+		fromObject.DeleteDns(domain)
+		//stateObject.UpdateDns(domain,ip)
+	}
+}
+
+//func (self *StateDB) TransReplyDns(addr common.Address, domain string, to common.Address) {
+//	stateObject := self.GetOrNewStateObject(addr)
+//	toStateObject := self.GetOrNewStateObject(to)
+//	if stateObject != nil && toStateObject != nil {
+//		_,ip :=stateObject.TransReplyDns(domain, to);
+//		ip := "128.87.89.0"
+//		if ip==""{
+//			return
+//		}
+//		toStateObject.InsertDns(domain,ip)
+//	}
+//}
 
 // AddBalance adds amount to the account associated with addr.
 func (self *StateDB) AddBalance(addr common.Address, amount *big.Int) {

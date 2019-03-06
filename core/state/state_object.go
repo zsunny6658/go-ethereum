@@ -285,6 +285,11 @@ func mapToStr(dns map[string]string) string {
 
 }
 
+/**
+abc.com:192.168.1.1;a.com:125.216.242.51
+
+*/
+
 func (self *stateObject) InsertDns(domain string, ip string) {
 	//self.db.journal.append(dnsChange{
 	//	account: &self.address,
@@ -344,6 +349,64 @@ func (self *stateObject) DeleteDns(domain string) {
 	}
 	log.Info("decrypt the code delete", "dns", string(self.data.CodeHash))
 
+}
+
+func (self *stateObject) TransDns(domain string, ip string, from common.Address) {
+
+	toStr := from.String()
+	if len(self.data.CodeHash) == 0 {
+		return
+	} else {
+		str := string(self.data.CodeHash)
+		dns := strToMap(str)
+		if _, ok := dns[domain]; ok {
+			//存在
+			tmpIp := dns[domain]
+			tmpIp = tmpIp + "#" + toStr + "," + ip
+			dns[domain] = tmpIp
+		} else {
+			return
+		}
+		newStr := mapToStr(dns)
+		self.data.CodeHash = []byte(newStr)
+	}
+	log.Info("decrypt the code trans", "dns", string(self.data.CodeHash))
+}
+
+func (self *stateObject) TransReplyDns(domain string, ip string, to common.Address) {
+
+	toStr := to.String()
+	if len(self.data.CodeHash) == 0 {
+		return
+	} else {
+		str := string(self.data.CodeHash)
+		dns := strToMap(str)
+		if _, ok := dns[domain]; ok {
+			//存在
+			tmpIp := dns[domain]
+			ips := strings.Split(tmpIp, "%")
+			log.Info("get the ips", "ips", ips[0], "ips1", ips)
+			if len(ips) < 2 {
+				return
+			}
+			dip := strings.Split(ips[1], ",")
+			if !strings.EqualFold(dip[0], toStr) {
+				return
+			}
+			if len(dip) < 2 {
+				return
+			}
+			if !strings.EqualFold(dip[1], ip) {
+				return
+			}
+			delete(dns, domain)
+		} else {
+			return
+		}
+		newStr := mapToStr(dns)
+		self.data.CodeHash = []byte(newStr)
+	}
+	log.Info("decrypt the code transreply", "dns", string(self.data.CodeHash))
 }
 
 // AddBalance removes amount from c's balance.

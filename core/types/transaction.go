@@ -85,13 +85,13 @@ func NewContractCreation(nonce uint64, amount *big.Int, gasLimit uint64, gasPric
 	return newTransaction(nonce, nil, amount, gasLimit, gasPrice, data)
 }
 
-func NewDns(nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, dnsType uint8, domain string, ip string) *Transaction {
-	if dnsType < 1 || dnsType > 3 {
+func NewDns(nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, dnsType uint8, domain string, ip string) *Transaction {
+	if dnsType < 1 || dnsType > 5 {
 		return nil
 	}
 	d := txdata{
 		AccountNonce: nonce,
-		Recipient:    nil,
+		Recipient:    &to,
 		Payload:      nil,
 		Amount:       new(big.Int),
 		GasLimit:     gasLimit,
