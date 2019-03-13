@@ -962,6 +962,10 @@ type RPCTransaction struct {
 	To               *common.Address `json:"to"`
 	TransactionIndex hexutil.Uint    `json:"transactionIndex"`
 	Value            *hexutil.Big    `json:"value"`
+	AboutDns         bool            `json:relate`
+	DnsType          hexutil.Uint64  `json:dnstype` //1=>register 2=>update 3=>delete
+	Domain           string          `json:domain`
+	Ip               string          `json:ip`
 	V                *hexutil.Big    `json:"v"`
 	R                *hexutil.Big    `json:"r"`
 	S                *hexutil.Big    `json:"s"`
@@ -970,6 +974,7 @@ type RPCTransaction struct {
 // newRPCTransaction returns a transaction that will serialize to the RPC
 // representation, with the given location metadata set (if available).
 func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber uint64, index uint64) *RPCTransaction {
+	log.Info("get the tx info", "aboutdns", tx.AboutDns(), "dnstype", tx.DnsType(), "domain", tx.Domain(), "ip", tx.Ip())
 	var signer types.Signer = types.FrontierSigner{}
 	if tx.Protected() {
 		signer = types.NewEIP155Signer(tx.ChainId())
@@ -986,6 +991,10 @@ func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber
 		Nonce:    hexutil.Uint64(tx.Nonce()),
 		To:       tx.To(),
 		Value:    (*hexutil.Big)(tx.Value()),
+		AboutDns: tx.AboutDns(),
+		DnsType:  hexutil.Uint64(tx.DnsType()),
+		Domain:   tx.Domain(),
+		Ip:       tx.Ip(),
 		V:        (*hexutil.Big)(v),
 		R:        (*hexutil.Big)(r),
 		S:        (*hexutil.Big)(s),
